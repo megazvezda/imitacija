@@ -1,0 +1,11 @@
+# Inspect sparse results without pretending blood is drawn every minute.
+# This advances 181 mission days in ~26 wall seconds. Telemetry goes only to your receiver.
+start = 2026-11-14T00:00:00Z
+speed = 604800
+duration_s = 15638400
+base_url = "http://127.0.0.1:8000"
+data_route = "/data"
+enabled_channels = ["troponin_i", "cortisol_saliva", "lactate", "urinary_ntx", "bone_ntx_pct_baseline", "vitamin_d_25oh", "il6_serum", "viral_ebv_detected", "viral_vzv_detected", "viral_cmv_detected", "body_mass", "urine_specific_gravity", "urine_volume_24h"]
+# Accelerated processing is an explicit demonstration choice, not NASA turnaround time.
+lab_delay_s = 3600
+shutdown_drain_wall_s = 2

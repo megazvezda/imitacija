@@ -1,13 +1,13 @@
 # we need an endpoint so the astronaut could upload their health history that we could use a baseline
 
-# singular channel/parameter reading shape, 
+# singular channel/parameter reading shape (see docs/backend_contract.md) 
 
 units are assumed to be from SI standard
 {                                                                     
 "channel": "bp_systolic",
-"value": 118,
-"evaluation": "optimal | normal | unusual | critical"
-"measured_at": "2026-11-08T07:12:00Z",
+"value": 15732.0,
+"unit": "Pa",
+"measured_at": "2026-11-08T07:12:00Z"
 }                                                                                                                                                
 
 # dictionary — environment-dependent, fetched once on environnmen switch

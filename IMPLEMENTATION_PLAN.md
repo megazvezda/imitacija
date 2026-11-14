@@ -1,12 +1,14 @@
 # Python astronaut telemetry simulator: implementation plan
 
+> **Frequency update:** [docs/frequency_table.md](docs/frequency_table.md) is now the sampling authority. [docs/frequency_mapping.md](docs/frequency_mapping.md) records the active raw/windowed/clinical interpretation and overrides the older interval tables and six-second settings retained below for research/design history.
+
 > **Superseded scope and schedules:** use [NASA_MONITORING_PLAN.md](NASA_MONITORING_PLAN.md) for the updated 10-page PDF, included biochemical/vital channels, independent environment stream, NASA evidence and proposed acquisition intervals. This earlier plan is retained for design history. Its instructions to implement every README row, sleep/mood/EEG, sensor physics and derived diagnostic outputs do not apply to the current scope. Its push-only/no-persistence architecture and type-hint/documentation requirements remain applicable where consistent with the new plan.
 
 ## 1. Scope and outcome
 
 Build a Python service that simulates every measurement channel in `readme.md`, maintains independent collection times, and POSTs each new reading to the receiving backend in place of a real NASA data source. This is a push-only generator with no persistent telemetry storage, inbound telemetry API, or NASA connection. The first version represents one healthy astronaut with a regular sleep, meal, work, and moderate exercise routine. Disease scenarios and scenario-switching controls are explicitly deferred.
 
-Use `nigelNote.md` as the response-contract source. Preserve its reading fields and evaluation labels. Correct its illustrative JSON syntax when implementing it: add the missing comma and remove trailing commas.
+Use `docs/backend_contract.md` as the response-contract source. Emit only `channel`, `value`, `unit`, and `measured_at`. Result evaluation belongs to a separate backend.
 
 This document is a plan only. Implementation will include source code, configuration, tests, runnable examples, and documentation.
 
@@ -51,22 +53,22 @@ Preserve this single-reading envelope:
 {
   "channel": "bp_systolic",
   "value": 15732.0,
-  "evaluation": "normal",
+  "unit": "Pa",
   "measured_at": "2026-11-08T07:12:00Z"
 }
 ```
 
-This example is approximately the note's 118 mmHg expressed in Pa. `measured_at` is acquisition time in UTC, not HTTP request time, calculation completion time, or retransmission time. `evaluation` is exactly one of `optimal`, `normal`, `unusual`, or `critical`.
+This example is approximately the note's 118 mmHg expressed in Pa. `measured_at` is acquisition time in UTC, not HTTP request time, calculation completion time, or retransmission time.
 
 Extend the channel dictionary while retaining all required fields from the note:
 
 - Environment: `id`, `gravity_g`, `comm_delay_s`.
 - Each channel: `channel`, `name`, `domain`, `body_regions`, `explanation`.
-- Additional explicit metadata: `unit`, `value_schema`, state-dependent sampling rules, expected freshness, citations, baseline provenance, evaluation policy, and whether the value is measured, derived, or a synthetic assessment/calibration.
+- Additional explicit metadata: `unit`, `value_schema`, state-dependent sampling rules, expected freshness, citations, baseline provenance, and whether the value is measured, derived, or a synthetic assessment/calibration.
 - Citations identify the PDF page for extracted requirements and the primary reference for any added ranges or scoring rules. Unsupported choices are labelled simulation assumptions.
 - Include dictionary/profile version identifiers in startup metadata; the receiving backend owns dictionary serving and caching. Do not add an environment-switching UI in this version.
 
-The required `evaluation` field creates some overlap with the analysis backend. Treat it as a local, documented channel assessment, not a diagnosis. For channels without validated thresholds, use an explicitly labelled synthetic baseline-deviation policy. Do not invent clinical thresholds or claim `optimal` has a universal medical meaning. Score and sensor-physics policies may inherit a parent channel's evaluation where documented.
+Result evaluation and severity classification belong to a separate backend. The simulator emits measurements without local assessment policies.
 
 ## 4. Model natural, coherent healthy behavior
 
@@ -174,7 +176,7 @@ docs/channel_catalog.md
 docs/model_assumptions.md
 ```
 
-Use type hints on all functions and methods, including return values. Define enums for user state and evaluation, typed configuration and immutable measurement records, and `Protocol` interfaces for clock, generator, and transport. Represent scalar and structured readings with explicit typed models; avoid unvalidated `dict[str, Any]` payloads.
+Use type hints on all functions and methods, including return values. Define typed configuration and immutable measurement records, and `Protocol` interfaces for clock, generator, and transport. Represent scalar and structured readings with explicit typed models; avoid unvalidated `dict[str, Any]` payloads.
 
 Write module and public-function docstrings explaining responsibilities, units, time semantics, formulas, and failure behavior. Add thorough comments around correlated noise, state transitions, timestamp retention, unit conversions, dependencies, and calibration choices. Comments should explain why the model behaves that way and cite assumptions; they should not just paraphrase assignments. Include worked examples showing two channels sampled at different times.
 
@@ -184,7 +186,7 @@ Run static type checking with mypy and lint/format checks with Ruff. Pin compati
 
 Use a fake clock and fixed seeds so tests do not require hours of wall-clock waiting.
 
-- **Coverage:** every README row maps to implemented channels or the explicitly backend-owned decision outputs. Every registered channel has an outbound route, type, unit, schedule, source/assumption, and evaluation policy.
+- **Coverage:** every README row maps to implemented channels or the explicitly backend-owned decision outputs. Every registered channel has an outbound route, type, unit, schedule, source/assumption,.
 - **JSON contract:** valid JSON, exact reading field names, valid enum values, timezone-aware UTC timestamps, and dictionary metadata matching the registry.
 - **Independent timing:** two channels with unequal periods and offsets collect at the expected distinct times. Delivery latency and retries do not alter collection schedules or values. State transitions, pauses, late collection, and resume behavior are deterministic.
 - **Healthy dynamics:** accelerated multi-day runs show smooth variation, recovery, sleep/meal patterns, plausible state-dependent values, and no unintended illness scenario. Check correlations, maximum change rates, and boundaries as well as means.

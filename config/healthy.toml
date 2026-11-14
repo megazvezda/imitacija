@@ -1,0 +1,33 @@
+# All times are simulation seconds except settings named *_wall_s.
+start = 2026-11-14T00:00:00Z
+seed = 42
+speed = 1.0
+base_url = "http://127.0.0.1:8000"
+data_route = "/data"
+lab_delay_s = 3600
+queue_capacity = 512
+max_age_s = 604800
+max_attempts = 3
+shutdown_drain_wall_s = 5
+# Hourly cuff monitoring from day 0 at 08:00; duration is unlimited by default.
+bp_session_start_s = 28800
+exercise_test_days = [0]
+
+[environment]
+id = "iss_cabin"
+gravity_g = 0
+comm_delay_s = 0
+pressure_pa = 101325
+dose_rate_usv_h = 18
+initial_monitor_dose_msv = 0
+
+[[crew]]
+id = "crew-1"
+sex = "male"
+mass_kg = 75
+resting_hr_bpm = 66
+rmssd_ms = 40
+sbp_mmhg = 114
+dbp_mmhg = 73
+ntx_baseline = 45
+vitamin_d_ng_ml = 40

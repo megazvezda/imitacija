@@ -2,6 +2,80 @@
 
 Generate synthetic sensor telemetry and send it to a separate backend for analysis.
 
+## Researcher dashboard and JSON preview before connecting a backend
+
+Start the optional local preview:
+
+```sh
+uv sync --frozen
+uv run imitacija --config config/healthy.toml --preview
+```
+
+Open **http://localhost:8080** for the researcher dashboard. It updates automatically every second and provides:
+
+- Separate crew physiology, **Dehydration & Electrolyte Loss**, biochemical/laboratory, and environmental panels.
+- Conventional units by default (bpm, %, °C, mmol/L), with an SI-wire toggle.
+- Charts of up to 120 distinct observations per owner/channel, held only in browser RAM.
+- Search, owner and result filters, with explicit awaiting/disabled states.
+- An **Inspect** button for each metric: collection time, specimen, method, schedule, window, source links and the exact JSON body.
+- A **Pause view** control that freezes inspection while the simulator continues.
+
+Use `--port 8081` if port 8080 is occupied. For a quicker day-long view of meals, exercise and daily rhythms, use `--preview --speed 600`: one simulated day takes about 2.4 wall minutes. Chart lines connect observed points as visual guides; the dashboard does not reconstruct readings missed between browser polls. Reloading clears chart history. Synthetic trajectories have not been independently validated against NASA recordings.
+
+For raw JSON, open **http://localhost:8080/readings** (also `/json`). Each entry contains owner/scope, wire and conventional units/values, window duration, and a `reading` object. **`reading` is exactly the four-field JSON body normal mode would POST**, in SI units. http://localhost:8080/dictionary explains channel units, specimens and schedules.
+
+Preview mode runs the same generators and result-availability rules, replacing backend delivery with a local in-memory viewer. It keeps only the latest available result per owner/channel and writes no telemetry files. Unsampled channels are absent; they appear as their own schedules become due. Laboratory fixtures also wait for the configured processing delay. For faster inspection, add `--speed 60` (one simulated minute per wall second). To inspect sparse biochemical collections across mission days, run:
+
+```sh
+uv run imitacija --config config/research_demo.toml --preview
+```
+
+That finite demo closes after about 26 seconds plus shutdown; inspect it while it runs. Ctrl+C stops the preview and clears its in-memory values. Without `--preview`, the program sends readings to your configured backend and does not open port 8080.
+
+### Hydration review and collection cadence
+
+The **Dehydration & Electrolyte Loss** panel follows the PDF page 2 table: body-mass change, urine specific gravity, local sweat rate and local sodium flux. Supporting sodium concentration and 24-hour urine volume are shown alongside them. Mass and local sweat cards show comparisons to configured baselines. Mass gain/loss is labelled as such; the PDF does not provide a direct water-retention sensor. Mass and spot-USG use daily pre/post-activity collections; timed urine volume waits for a full day, and sweat readings appear only when sufficient sweat is present; awaiting values are not filled with guesses.
+
+**Current frequencies follow [docs/frequency_table.md](docs/frequency_table.md)**, replacing the earlier six-second override. HR, HRV and breathing publish once per minute after complete 60-second windows. Temperature, SpO2, CO2, light, dose rate and SPE publish at 1 Hz. Local sweat flow/sodium acquisition is 1 Hz while active and wet, with sodium-loss summaries once per minute; integrated monitor dose also publishes once per minute. Mass/spot-USG sessions are daily, urine volume is daily after a complete 24-hour collection, NTx is weekly, cortisol is every four waking hours and viral PCR is every 48 hours. Vitamin D remains monthly; IL-6/troponin are explicitly gated assay events.
+
+See [the active frequency mapping](docs/frequency_mapping.md) for raw-versus-windowed semantics, warm-up phases, optional 10 Hz stand-test bursts, stable channel aliases and unspecified/excluded rows. The dictionary and metric inspector show raw input Hz separately from publication cadence. Browser charts poll every wall second, so accelerated runs may skip intermediate readings in the view.
+
+## Run the implemented worker
+
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Dependencies are pinned in `uv.lock`.
+
+```sh
+uv sync --frozen
+uv run imitacija --config config/healthy.toml --validate-config
+uv run imitacija --config config/healthy.toml
+```
+
+Set `base_url` and `data_route` in `config/healthy.toml` to your receiver before starting:
+
+```toml
+base_url = "http://localhost:9000"
+data_route = "/data"
+```
+
+All crew and environment readings are POSTed to `http://localhost:9000/data`. The receiver distinguishes them using the `X-Simulation-Scope` and `X-Owner-ID` headers and the body’s `channel`. `data_route` replaces the older separate route settings; remove `crew_route`, `environment_route` and `channel_routes` from existing configurations. Optional authentication comes from `IMITACIJA_TOKEN`; credentials do not belong in configuration URLs. Stop with Ctrl+C for a bounded drain. Normal mode is a push-only worker; the optional preview opens a read-only localhost researcher dashboard and JSON endpoints.
+
+The implementation covers **29 channels**, with independent wearable clocks, completed HRV/urine windows, session-based laboratory fixtures, delayed result availability, paired acquisitions and separate environmental ownership. Generated measurements exist only in RAM and outbound requests. Stderr reports aggregate operational counters. Backend history and analysis are separate responsibilities.
+
+For a finite wearable run, add `--duration 600 --speed 10` (600 simulated seconds in about one minute). This is too short for most laboratory sessions. For mission-long sparse sampling, use `config/research_demo.toml`; it enables laboratory channels and advances 181 days in about 26 seconds. High acceleration may coalesce late collections and exceed receiver capacity; counters report drops. Healthy disease/scenario switching is deferred.
+
+```sh
+uv run imitacija --config config/research_demo.toml
+uv run imitacija --config config/healthy.toml --dictionary
+uv run pytest -q
+uv run mypy src
+uv run ruff check src tests
+uv run ruff format --check src tests
+```
+
+The tests include a temporary localhost HTTP receiver, so they require permission to open local sockets. See [backend integration](docs/backend_contract.md), [channel catalog](docs/channel_catalog.md), and [model assumptions](docs/model_assumptions.md) for the exact contract, SI units, schedules, clinical-source limits and delivery behavior. Static dictionary export contains metadata only.
+
+## Research and historical specification
+
 **Current plan:** [NASA monitoring, acquisition schedules and implementation](NASA_MONITORING_PLAN.md). Current scope is biochemical biomarkers (including newly specified IL-6), vital signs and objective hydration/nutrition measurements, plus an independent environmental stream. Sleep, mood, cognitive/visual assessments and sensor-physics/digital-twin outputs are excluded. The worker POSTs readings and does not persist telemetry. See [ranges.md](ranges.md) for cited, context-specific ranges and [nigelNote.md](nigelNote.md) for the reading contract.
 
 The source is now the [updated 10-page specification](Tiered%20Master%20System%20Specification%20%26%20Implementation%20Plan%20%281%29-1.pdf). The tables below are a **historical extraction of the previous six-page edition**; their page numbers, thresholds, formulas and broad scope are not current implementation requirements. Retained for traceability only. Values labelled **example** are sample payload values, not normal ranges. **Unspecified** means the previous PDF did not supply that detail.

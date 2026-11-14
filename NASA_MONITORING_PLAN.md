@@ -1,5 +1,7 @@
 # NASA-informed biomarker simulation plan
 
+> **Frequency update:** [docs/frequency_table.md](docs/frequency_table.md) is now the sampling authority. [docs/frequency_mapping.md](docs/frequency_mapping.md) records the active raw/windowed/clinical interpretation and overrides the older interval tables and six-second settings retained below for research/design history.
+
 Reviewed: **2026-11-14**. This is the current implementation scope and overrides the older all-channel inventory and plan. Source specification: [updated 10-page PDF](Tiered%20Master%20System%20Specification%20%26%20Implementation%20Plan%20%281%29-1.pdf). Clinical evidence and detailed interpretation remain in [ranges.md](ranges.md); transport fields come from [nigelNote.md](nigelNote.md).
 
 ## 1. Deliverable and scope
@@ -40,12 +42,12 @@ The last column below is the **proposed simulator configuration**, not a NASA re
 
 | Channel identifier / specimen | NASA or spaceflight evidence and actual cadence | Proposed first implementation schedule |
 | --- | --- | --- |
-| `heart_rate` | M/V periodic medical observations; B session measurements. | Wearable assumption: every **15 s exercising / 60 s resting**, independently scheduled. |
+| `heart_rate` | M/V periodic medical observations; B session measurements. | Project cadence override: every **6 s (10/min)**, independent of activity. This supersedes the earlier 15/60-second simulator choice; it is not a NASA cadence claim. |
 | `hrv_rmssd` | [Primary long-duration cardiac study][N9] used 48-hour Holter sessions, including an in-flight session near R−15. No universal RMSSD publishing period established. | One result per **5-minute** clean beat-interval window. Generate NN intervals internally; sparse 15-second HR values cannot reconstruct HRV. |
 | `bp_systolic`, `bp_diastolic` | M clinical checks; B documents hourly/2-hour cuff acquisitions within a study session. | Paired cuff acquisition every **60 min during a configured monitoring session**; no readings outside that session. Same acquisition timestamp for both components. This is a study-inspired demo choice. |
 | `spo2` | V health-status observations; no universal continuous cadence verified. | Wearable assumption: **30 s**. |
 | `body_temperature` | M/V assessments; NASA routine use of the PDF's particular ZHF device was not verified. | Core-equivalent sensor assumption: **60 s**, with sensor lag and declared measurement site/method. |
-| `respiratory_rate` | M/V assessments. | Wearable assumption: **30 s**, independent phase from SpO2. Declare counting/averaging window. |
+| `respiratory_rate` | M/V assessments. | Project cadence override: every **6 s (10/min)**, first result at 31 s after the 30-second observation-window warm-up. Independent phase from other channels. |
 | `glucose` — interstitial CGM estimate | NASA reports an [ISS Vascular Aging oral glucose tolerance session][N10]; no routine all-crew CGM interval established. [NIDDK][N11] describes CGM interstitial measurement every few minutes. | **5 min** for a clearly labelled synthetic CGM. Venous fasting/OGTT results would be a separate specimen-specific channel/session; do not apply venous diagnostic rules directly to CGM. |
 | `cortisol_saliva` | C: five timed collections per sampling day. | Five scheduled samples on configured collection days using C's relative times. Baseline plus a sampling day every **30 mission days** is a project choice, not C's exact mission schedule. Declare lab delay. |
 | `troponin_i` — serum/plasma hs-cTnI | No routine in-flight NASA sampling interval verified in the reviewed public sources. | One explicitly synthetic baseline laboratory fixture; later samples only at configured clinical events. No healthy 5-minute stream. Future repeat testing must follow the selected assay/event protocol. |
@@ -88,7 +90,7 @@ The table summarizes the current retained scope. [ranges.md](ranges.md) contains
 | 24-hour urine volume | Intake/body-size dependent; adult stone prevention target **≥2.5 L/day**. | PDF <2 L/day is not kidney failure. KDIGO uses <0.5 mL/kg/h over ≥6 h and more severe timed criteria; a daily aggregate cannot establish all shorter windows. |
 | Sweat rate | Rest can produce little measurable sweat; exercise/thermal load increase it. | No universal critical rate. Interpret losses against replacement, body mass and symptoms; absent fluid in a patch is not zero circulating sodium. |
 
-No unsupported marker should receive invented medical severity bands. For the healthy demonstration, a `normal` evaluation for HRV/flux or other baseline-based channels must explicitly mean **within the configured synthetic baseline policy**, not clinically validated normality. Reserve `optimal`; there is no universal optimal definition. Future illness flags need condition-specific context, not a single generic low/medium/high vector.
+Result evaluation, severity labels and clinical interpretation belong to a separate backend. The generator emits measurements only.
 
 ## 5. Environmental stream: cadence and ranges
 
@@ -99,7 +101,7 @@ Environment records identify a compartment and sensor, never a required astronau
 | `ambient_ppco2` | E requires continuous monitoring. A NASA [SAM technology demonstration][N16] transmitted gas data every **2 s**, a device-specific reporting interval. | Every **2 s**, a demo choice. Nominal **1-hour mean ≤3 mmHg ≈400 Pa**, V2 6004 [N7]. An instantaneous exceedance and a completed 1-hour exceedance are different. No universal NASA emergency concentration is supplied by this requirement. |
 | `ambient_light_lux` | Light exposure is documented in NASA [wearable research][N17]; no universal cabin photometer cadence verified. | Every **60 s**, independent compartment lighting schedule. No universal normal/critical photopic lux. Melanopic EDI targets in ranges.md require spectral/at-eye measurements; they must not classify ordinary lux. No sleep inference. |
 | `ambient_dose_rate` | R documents 1-minute radiation reporting. | Every **60 s** for a declared modeled dose-equivalent rate, SI Sv/s. If mimicking an instrument reporting absorbed dose instead, use a separate Gy/s channel; no implicit conversion. PDF >50 µSv/h is a project alert, not a universal NASA medical limit. |
-| `ambient_integrated_dose` | Time-resolved monitoring supports integration; personal effective-dose requirements are different. | Every **60 s**, integrate the same latent rate over elapsed time. Never label this career effective dose. Initialize from run configuration and identify run resets. |
+| `ambient_integrated_dose` | Time-resolved monitoring supports integration; personal effective-dose requirements are different. | Every **6 s (10/min)**, integrate the same latent rate over elapsed time, independently of the dose-rate publication interval. Never label this career effective dose. Initialize from run configuration and identify run resets. |
 | `spe_flag` | NASA specifies protection for a design-reference SPE; no universal public Boolean polling rule verified. | Event-driven changes plus **60 s heartbeat**, false in healthy default. Optional 1 Hz PDF mode is explicitly a project schedule, not NASA practice. |
 
 Radiation interpretation: [NASA V1 4030–4033][N18] distinguishes career effective dose **<600 mSv**, design-SPE protection **<250 mSv**, and long-duration GCR design limits **<1.3 mSv/day free space / <0.9 mSv/day planetary surface**. These are not interchangeable instantaneous illness alarms. A personal effective-dose channel can later be added with an explicit exposure model and prior-career baseline; it must not merely rename the ambient counter.
@@ -122,8 +124,8 @@ The backend computes exposure windows and stores environment history. The genera
 ## 7. Python implementation sequence
 
 1. **Create the typed registry and coverage manifest.** Every channel above gets a stable ID, crew/environment scope, specimen, assay/device, source unit, wire unit, collection schedule, averaging window, availability delay, baseline policy and citations. Record exclusions explicitly. Use `Enum`, dataclasses/Pydantic models and typed protocols; no ambiguous reuse of `cortisol` across specimens or `radiation_dose` across dose quantities.
-2. **Freeze the outbound contract.** Preserve `channel`, `value`, `evaluation`, `measured_at` from nigelNote.md and valid JSON syntax. Correct the note's apparent mmHg/SI mismatch at conversion: 118 mmHg ≈15732 Pa. Dictionary metadata retains `environment.id`, `gravity_g`, `comm_delay_s`, and channel `name`, `domain`, `body_regions`, `explanation`; add unit, specimen, method, source, policy and window definitions. Environment channels use empty body regions.
-3. **Route by owner without implementing a server.** Proposed receiver paths: `/ingest/crew/{crew_id}` and `/ingest/environments/{environment_id}`. A separate URL per biomarker is unnecessary because `channel` identifies it; support a configurable route map if the receiving backend already requires it. Identify sensor/run and deduplication key in agreed headers. Dynamic sample/window/quality context can travel in agreed metadata headers while keeping the four-field body. Contract changes require receiver compatibility before code integration, not another local API.
+2. **Freeze the outbound contract.** Emit only `channel`, `value`, `unit`, `measured_at` as specified in docs/backend_contract.md and valid JSON syntax. Correct the note's apparent mmHg/SI mismatch at conversion: 118 mmHg ≈15732 Pa. Dictionary metadata retains `environment.id`, `gravity_g`, `comm_delay_s`, and channel `name`, `domain`, `body_regions`, `explanation`; add unit, specimen, method, source and window definitions. Environment channels use empty body regions.
+3. **Use one data route without implementing a server.** All crew and environment readings POST to the configured `data_route` (default `/data`) under `base_url`. Scope and owner are carried in headers; `channel` identifies the biomarker. Identify sensor/run and deduplication key in agreed headers. Dynamic sample/window/quality context can travel in agreed metadata headers while keeping the four-field body. Contract changes require receiver compatibility before code integration, not another local API.
 4. **Build elapsed-time physiological models.** Shared activity, meals, circadian phase and hydration produce correlated responses with separate time constants; use seeded, per-channel random streams and modest correlated sensor noise. Generate latent continuous physiology independently of when it is observed. Slow NTx/vitamin D changes must not jump at sample ticks. Use baseline fixtures for assays without a continuous model. Serum IL-6, sweat concentration and cortisol remain different specimen models.
 5. **Build independent environment models.** Compartment CO2/lighting/radiation have their own clocks and RNG streams. Integrate nonnegative latent radiation rate; noisy measurements do not make accumulated dose decrease. Publish each environment acquisition once even with multiple astronauts. Keep environmental state alive when a crew sensor pauses.
 6. **Implement acquisition and result availability.** Use `asyncio` with monotonic scheduling; UTC for measurement timestamps. Support periodic sensors, event sampling, multi-time-point sessions and window aggregates. The same physical acquisition may have multiple paired results. `measured_at` is point collection time or window end with a defined window, not HTTP send time. Lab samples become sendable only after configured processing delay. Accelerated simulation declares its clock mapping/run identity to the backend.
@@ -134,7 +136,7 @@ Use full type hints on public functions and model fields. Docstrings/comments sh
 
 ## 8. Acceptance criteria and future scenarios
 
-- Every included measurement has a source, specimen/device, unit, schedule and explicit evaluation policy; unknown NASA cadence is labelled unknown rather than filled with the PDF's numbers.
+- Every included measurement has a source, specimen/device, unit, schedule; unknown NASA cadence is labelled unknown rather than filled with the PDF's numbers.
 - Healthy traces are physiologically coherent, including ordinary exercise effects; they are not independent uniform random numbers constrained to resting reference bands.
 - The receiver sees newly acquired readings at independent times and sparse lab results with correct windows and collection timestamps.
 - Environmental telemetry has independent ownership and cadence; no astronaut identifier is required for a cabin sensor record.
@@ -166,3 +168,10 @@ N1/N3/N6/N8 are NASA-hosted documents; N2 is a program-authored review of its me
 [N17]: https://www.nasa.gov/humans-in-space/wearable-tech-for-space-station-research/ "NASA wearable research including light exposure"
 [N18]: https://www.nasa.gov/reference/4-0-human-performance/ "NASA Volume 1 radiation protection requirements"
 [N19]: https://standards.nasa.gov/node/237 "NASA-STD-3001 Volume 2 Revision F, 2026-07-14"
+
+
+## Implemented dehydration review and cadence override
+
+The PDF page 2 “Dehydration & Electrolyte Loss” row specifies acute body-mass loss >2%, urine specific gravity >1.020, and baseline-relative local sweat rate / sodium flux. The researcher dashboard groups these inputs together, with sodium concentration and timed urine volume as supporting measurements. Body mass and local sweat channels expose comparisons against configured synthetic reference values. Activity affects sweat flow, and monthly mass / session-based urine observations cannot establish an acute event by themselves. No standalone water-retention or total-body-water sensor is specified by that row; mass gain must not be labelled fluid retention without additional evidence.
+
+The user's current override fixes heart rate, respiratory rate and integrated monitor dose at one acquisition every six simulation seconds. Respiration retains a 30-second estimation window and first-result warm-up. Integrated monitor dose now has an independent acquisition group; dose rate retains its separately configured publication interval. These are project requirements, not newly asserted NASA practices.
