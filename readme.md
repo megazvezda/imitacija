@@ -2,43 +2,32 @@
 
 Generate synthetic sensor telemetry and send it to a separate backend for analysis.
 
-## Researcher dashboard and JSON preview before connecting a backend
+## See generated JSON before connecting a backend
 
-Start the optional local preview:
+Start the optional local JSON preview:
 
 ```sh
 uv sync --frozen
 uv run imitacija --config config/healthy.toml --preview
 ```
 
-Open **http://localhost:8080** for the researcher dashboard. It updates automatically every second and provides:
+Open **http://localhost:8080** to see raw JSON. `/readings` and `/json` return the same snapshot; `/dictionary` explains channel units, specimens and sampling schedules. Refresh to see the latest available results. Use `--port 8081` if port 8080 is occupied.
 
-- Separate crew physiology, **Dehydration & Electrolyte Loss**, biochemical/laboratory, and environmental panels.
-- Conventional units by default (bpm, %, °C, mmol/L), with an SI-wire toggle.
-- Charts of up to 120 distinct observations per owner/channel, held only in browser RAM.
-- Search, owner and result filters, with explicit awaiting/disabled states.
-- An **Inspect** button for each metric: collection time, specimen, method, schedule, window, source links and the exact JSON body.
-- A **Pause view** control that freezes inspection while the simulator continues.
+Each entry contains owner/scope, wire and conventional units/values, optional configured baseline, window duration, and a `reading` object. **`reading` is exactly the four-field JSON body normal mode would POST**, including its SI `unit`. Preview mode keeps only the latest result per owner/channel in RAM and writes no telemetry files. Laboratory results still wait for collection and processing; missing values are not filled with guesses.
 
-Use `--port 8081` if port 8080 is occupied. For a quicker day-long view of meals, exercise and daily rhythms, use `--preview --speed 600`: one simulated day takes about 2.4 wall minutes. Chart lines connect observed points as visual guides; the dashboard does not reconstruct readings missed between browser polls. Reloading clears chart history. Synthetic trajectories have not been independently validated against NASA recordings.
-
-For raw JSON, open **http://localhost:8080/readings** (also `/json`). Each entry contains owner/scope, wire and conventional units/values, window duration, and a `reading` object. **`reading` is exactly the four-field JSON body normal mode would POST**, in SI units. http://localhost:8080/dictionary explains channel units, specimens and schedules.
-
-Preview mode runs the same generators and result-availability rules, replacing backend delivery with a local in-memory viewer. It keeps only the latest available result per owner/channel and writes no telemetry files. Unsampled channels are absent; they appear as their own schedules become due. Laboratory fixtures also wait for the configured processing delay. For faster inspection, add `--speed 60` (one simulated minute per wall second). To inspect sparse biochemical collections across mission days, run:
+For faster inspection, add `--speed 60`. For sparse laboratory sessions across mission days:
 
 ```sh
 uv run imitacija --config config/research_demo.toml --preview
 ```
 
-That finite demo closes after about 26 seconds plus shutdown; inspect it while it runs. Ctrl+C stops the preview and clears its in-memory values. Without `--preview`, the program sends readings to your configured backend and does not open port 8080.
+That finite demo closes after about 26 seconds plus shutdown; inspect it while it runs. Ctrl+C stops the preview and clears its values. Normal mode sends to `data_route` and opens no local preview server.
 
-### Hydration review and collection cadence
+### Sampling and hydration inputs
 
-The **Dehydration & Electrolyte Loss** panel follows the PDF page 2 table: body-mass change, urine specific gravity, local sweat rate and local sodium flux. Supporting sodium concentration and 24-hour urine volume are shown alongside them. Mass and local sweat cards show comparisons to configured baselines. Mass gain/loss is labelled as such; the PDF does not provide a direct water-retention sensor. Mass and spot-USG use daily pre/post-activity collections; timed urine volume waits for a full day, and sweat readings appear only when sufficient sweat is present; awaiting values are not filled with guesses.
+The implemented dehydration inputs are body mass, spot urine specific gravity, local sweat flow, sodium concentration/flux and completed 24-hour urine volume. Preview JSON can include configured mass/local-sweat baselines for comparison; mass change alone is not a water-retention measurement.
 
-**Current frequencies follow [docs/frequency_table.md](docs/frequency_table.md)**, replacing the earlier six-second override. HR, HRV and breathing publish once per minute after complete 60-second windows. Temperature, SpO2, CO2, light, dose rate and SPE publish at 1 Hz. Local sweat flow/sodium acquisition is 1 Hz while active and wet, with sodium-loss summaries once per minute; integrated monitor dose also publishes once per minute. Mass/spot-USG sessions are daily, urine volume is daily after a complete 24-hour collection, NTx is weekly, cortisol is every four waking hours and viral PCR is every 48 hours. Vitamin D remains monthly; IL-6/troponin are explicitly gated assay events.
-
-See [the active frequency mapping](docs/frequency_mapping.md) for raw-versus-windowed semantics, warm-up phases, optional 10 Hz stand-test bursts, stable channel aliases and unspecified/excluded rows. The dictionary and metric inspector show raw input Hz separately from publication cadence. Browser charts poll every wall second, so accelerated runs may skip intermediate readings in the view.
+**Current frequencies follow [docs/frequency_table.md](docs/frequency_table.md)**. See [the active mapping](docs/frequency_mapping.md) for raw-versus-windowed timing, warm-up phases, optional stand-test bursts, assay gates and scope. The dictionary exposes raw input Hz separately from publication cadence.
 
 ## Run the implemented worker
 
@@ -57,7 +46,7 @@ base_url = "http://localhost:9000"
 data_route = "/data"
 ```
 
-All crew and environment readings are POSTed to `http://localhost:9000/data`. The receiver distinguishes them using the `X-Simulation-Scope` and `X-Owner-ID` headers and the body’s `channel`. `data_route` replaces the older separate route settings; remove `crew_route`, `environment_route` and `channel_routes` from existing configurations. Optional authentication comes from `IMITACIJA_TOKEN`; credentials do not belong in configuration URLs. Stop with Ctrl+C for a bounded drain. Normal mode is a push-only worker; the optional preview opens a read-only localhost researcher dashboard and JSON endpoints.
+All crew and environment readings are POSTed to `http://localhost:9000/data`. The receiver distinguishes them using the `X-Simulation-Scope` and `X-Owner-ID` headers and the body’s `channel`. `data_route` replaces the older separate route settings; remove `crew_route`, `environment_route` and `channel_routes` from existing configurations. Optional authentication comes from `IMITACIJA_TOKEN`; credentials do not belong in configuration URLs. Stop with Ctrl+C for a bounded drain. Normal mode is a push-only worker; the optional preview opens a read-only localhost JSON endpoints.
 
 The implementation covers **29 channels**, with independent wearable clocks, completed HRV/urine windows, session-based laboratory fixtures, delayed result availability, paired acquisitions and separate environmental ownership. Generated measurements exist only in RAM and outbound requests. Stderr reports aggregate operational counters. Backend history and analysis are separate responsibilities.
 

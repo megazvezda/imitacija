@@ -44,7 +44,7 @@ async def run(settings: Settings, preview_port: int | None = None) -> None:
     context = serve(settings, preview_port) if preview_port is not None else nullcontext(None)
     with context as preview:
         if preview is not None:
-            print(f"Research dashboard: {preview.url} (JSON at /readings)", file=sys.stderr)
+            print(f"JSON preview: {preview.url} (refresh to update)", file=sys.stderr)
         await _run_worker(settings, preview)
 
 

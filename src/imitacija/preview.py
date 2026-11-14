@@ -8,7 +8,6 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from importlib.resources import files
 from urllib.parse import urlsplit
 
 import httpx
@@ -150,15 +149,7 @@ def serve(settings: Settings, port: int) -> Iterator[PreviewState]:
             """Return latest readings or static dictionary; avoid browser/disk caching."""
             path = urlsplit(self.path).path
             content_type = "application/json; charset=utf-8"
-            assets = {
-                "/": ("dashboard.html", "text/html; charset=utf-8"),
-                "/dashboard.css": ("dashboard.css", "text/css; charset=utf-8"),
-                "/dashboard.js": ("dashboard.js", "text/javascript; charset=utf-8"),
-            }
-            if path in assets:
-                asset, content_type = assets[path]
-                payload = files("imitacija").joinpath("web", asset).read_bytes()
-            elif path in {"/readings", "/json"}:
+            if path in {"/", "/readings", "/json"}:
                 payload = state.snapshot()
             elif path == "/dictionary":
                 payload = state.dictionary_json

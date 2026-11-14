@@ -52,6 +52,6 @@ uv run imitacija --config config/healthy.toml --dictionary
 Dictionary JSON retains nigelNote's `environment` and `channels` fields, and adds units, source units, specimen/method, collection/window/availability definitions, citations, enabled flags and exclusions. It is exported explicitly; the worker does not register it automatically or persist it. The receiver decides how to import/serve it and whether its ingestion contract accepts the proposed headers/routes.
 
 
-## Local research preview
+## Local JSON preview
 
-`--preview` serves the auto-refreshing researcher dashboard at `/`, static assets at `/dashboard.css` and `/dashboard.js`, raw snapshots at `/readings` (alias `/json`), and metadata at `/dictionary`. The root path now returns HTML; JSON consumers must use `/readings`. Preview snapshots add conventional-unit values (`source_value`, `source_unit`) and run/clock/owner metadata for the UI. These additions surround each `reading`; the four-field backend POST body remains unchanged. The browser retains at most 120 distinct observations per owner/channel in RAM for charts. Normal backend delivery does not start this server.
+`--preview` exposes raw JSON at `/`, `/readings` and `/json`, and metadata at `/dictionary`. It replaces backend delivery with bounded latest-result state held only in RAM. The four-field `reading` object is the exact POST body; surrounding preview context includes conventional values, baselines and run/clock/owner metadata. Refresh to obtain another snapshot. Normal backend delivery does not start this local server.

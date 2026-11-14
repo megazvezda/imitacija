@@ -123,18 +123,11 @@ def test_preview_serves_json_without_backend_posts(
             while not states:
                 await asyncio.sleep(0.01)
             async with httpx.AsyncClient(trust_env=False) as client:
-                dashboard = await client.get(states[0].url)
-                assert "text/html" in dashboard.headers["Content-Type"]
-                assert "Telemetry review" in dashboard.text
-                for asset, content_type in (
-                    ("dashboard.js", "javascript"),
-                    ("dashboard.css", "css"),
-                ):
-                    resource = await client.get(states[0].url + "/" + asset)
-                    assert (
-                        resource.status_code == 200
-                        and content_type in resource.headers["Content-Type"]
-                    )
+                root = await client.get(states[0].url)
+                assert "application/json" in root.headers["Content-Type"]
+                assert root.json()["mode"] == "preview"
+                for removed in ("dashboard.js", "dashboard.css", "dashboard.html"):
+                    assert (await client.get(states[0].url + "/" + removed)).status_code == 404
                 response = await client.get(states[0].url + "/readings")
                 assert response.status_code == 200
                 assert response.headers["Cache-Control"] == "no-store"
