@@ -1,5 +1,7 @@
 # NASA-informed biomarker simulation plan
 
+> **Startup update:** Every enabled owner/channel now emits one labelled, immediately available synthetic baseline at run start, then follows its normal schedule. See [startup initialization](docs/backend_contract.md#startup-initialization). This overrides older statements requiring initial windows or research collection days before any value appears.
+
 > **Frequency update:** [docs/frequency_table.md](docs/frequency_table.md) is now the sampling authority. [docs/frequency_mapping.md](docs/frequency_mapping.md) records the active raw/windowed/clinical interpretation and overrides the older interval tables and six-second settings retained below for research/design history.
 
 Reviewed: **2026-11-14**. This is the current implementation scope and overrides the older all-channel inventory and plan. Source specification: [updated 10-page PDF](Tiered%20Master%20System%20Specification%20%26%20Implementation%20Plan%20%281%29-1.pdf). Clinical evidence and detailed interpretation remain in [ranges.md](ranges.md); transport fields come from [nigelNote.md](nigelNote.md).

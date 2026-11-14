@@ -34,6 +34,7 @@ Headers supply the context without changing nigelNote's body:
 | `X-Simulation-Run` | New unique delivery run on each process start. |
 | `X-Simulation-Scope` | `crew` or `environment`. |
 | `X-Owner-ID` | Crew ID or compartment ID according to scope. |
+| `X-Sample-Kind` | `startup_baseline` for one immediately available run-start fixture; `scheduled` for normal acquisitions. |
 | `X-Sensor-ID` | Owner + acquisition group; paired results share the physical acquisition group. |
 | `X-Window-Seconds` | 0 for point sampling; duration ending at `measured_at` otherwise. |
 | `X-Simulation-Start`, `X-Simulation-Speed` | Mapping of run time to timestamps; acceleration must be explicit to the backend. |
@@ -55,3 +56,12 @@ Dictionary JSON retains nigelNote's `environment` and `channels` fields, and add
 ## Local JSON preview
 
 `--preview` exposes raw JSON at `/`, `/readings` and `/json`, and metadata at `/dictionary`. It replaces backend delivery with bounded latest-result state held only in RAM. The four-field `reading` object is the exact POST body; surrounding preview context includes conventional values, baselines and run/clock/owner metadata. Refresh to obtain another snapshot. Normal backend delivery does not start this local server.
+
+
+## Startup initialization
+
+Every enabled owner/channel emits exactly once with `measured_at` equal to the configured run start, including lab-only, windowed and normally dry/inactive channels. It is a synthetic known-at-start profile value, marked `X-Sample-Kind: startup_baseline`, not a newly processed assay or completed pre-start collection. It bypasses `lab_delay_s` while respecting communication delay and bounded delivery. The four-field body is unchanged.
+
+Startup `X-Window-Seconds` is 0: a nominal 24-hour urine baseline must not be interpreted as urine actually collected during a zero-duration interval. Profile RMSSD, nominal daily urine volume (2.7 L), glucose baseline and configured local sweat references stand in for windows that do not yet exist. Normal scheduled readings use `X-Sample-Kind: scheduled` and their real collection windows/processing delays. Preview snapshots expose the same `sample_kind` as metadata around `reading`.
+
+The first normal acquisition remains at its original time; no time-zero acquisition is duplicated. Empty IL-6/troponin event lists suppress later assay collections, not startup initialization. Use `enabled_channels` to omit a metric entirely. A new process run creates fresh baseline readings with a new run identifier; resuming an existing scheduler does not repeat initialization.

@@ -34,10 +34,15 @@ class Collector:
         self.items.append(observation)
 
 
-def simulate(settings: Settings, duration: float) -> list[Observation]:
+def simulate(
+    settings: Settings,
+    duration: float,
+    *,
+    include_startup: bool = False,
+) -> list[Observation]:
     sink = Collector()
     asyncio.run(Scheduler(settings, ManualClock(), sink).run(duration))
-    return sink.items
+    return [o for o in sink.items if include_startup or o.sample_kind == "scheduled"]
 
 
 def test_independent_timing_and_original_timestamp() -> None:
@@ -70,14 +75,16 @@ def test_pairing_si_contract_and_cuff_session() -> None:
 
 def test_all_sparse_lab_channels_and_completed_windows() -> None:
     names = tuple(c.id for c in CHANNELS.values() if c.lab or c.group in {"mass", "urine"})
-    items = simulate(Settings(enabled_channels=names), 181 * DAY + 1)
+    items = simulate(Settings(enabled_channels=names), 181 * DAY + 1, include_startup=True)
     assert {o.reading.channel for o in items} == set(names)
     il6 = [o for o in items if o.reading.channel == "il6_serum"]
     assert [o.acquired_s / DAY for o in il6] == [0]
-    volumes = [o for o in items if o.reading.channel == "urine_volume_24h"]
+    volumes = [
+        o for o in items if o.reading.channel == "urine_volume_24h" and o.sample_kind == "scheduled"
+    ]
     assert [o.acquired_s / DAY for o in volumes] == list(range(1, 182))
     assert all(o.window_s == DAY and 0.0025 <= float(o.reading.value) <= 0.003 for o in volumes)
-    assert all(o.available_s == o.acquired_s + 3600 for o in il6)
+    assert all(o.available_s == 0 and o.sample_kind == "startup_baseline" for o in il6)
     ntx = {
         o.acquired_s: float(o.reading.value) for o in items if o.reading.channel == "urinary_ntx"
     }
@@ -220,7 +227,7 @@ def test_late_scheduler_coalesces_without_backdating() -> None:
 
     sink = Collector()
     asyncio.run(Scheduler(Settings(enabled_channels=("heart_rate",)), SlowClock(), sink).run(150))
-    assert [o.acquired_s for o in sink.items] == [70, 130]
+    assert [o.acquired_s for o in sink.items] == [0, 70, 130]
 
 
 def test_two_day_stream_has_bounded_state_and_channel_coverage() -> None:
@@ -256,7 +263,7 @@ def test_matrix_minute_outputs_and_one_hz_environment() -> None:
         ("heart_rate", [60, 120, 180]),
         ("respiratory_rate", [77, 137]),
         ("ambient_integrated_dose", [60, 120, 180]),
-        ("ambient_dose_rate", list(range(181))),
+        ("ambient_dose_rate", list(range(1, 181))),
     ):
         assert [o.acquired_s for o in items if o.reading.channel == name] == expected
     respiratory = [o for o in items if o.reading.channel == "respiratory_rate"]

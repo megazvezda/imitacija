@@ -266,3 +266,46 @@ def environment_values(
             return {"spe_flag": False}
         case _:
             raise ValueError(f"unknown environment acquisition group: {group}")
+
+
+def startup_crew_values(profile: AstronautProfile, seed: int) -> dict[str, float | bool]:
+    """Supply a complete run-start profile without inventing pre-start collections.
+
+    Point-like channels can use their latent value at time zero. Windowed/dry
+    channels instead use declared healthy fixtures: a prior-reference RMSSD, nominal
+    daily urine volume and local sweat reference conditions. These values must be
+    transported as startup_baseline, not as completed in-flight sensor windows.
+    """
+    values: dict[str, float | bool] = {}
+    for group in (
+        "bp",
+        "spo2",
+        "temperature",
+        "cortisol",
+        "troponin",
+        "lactate",
+        "vitamin",
+        "il6",
+        "mass",
+        "usg",
+        "saliva_pcr",
+        "urine_pcr",
+    ):
+        values.update(crew_values(group, 0, profile, seed))
+    values.update(
+        {
+            "heart_rate": profile.resting_hr_bpm,
+            "hrv_rmssd": profile.rmssd_ms,
+            "respiratory_rate": 14,
+            "glucose": 5.1 + 0.06 * noise(0, seed, profile.id, "glucose"),
+            "urinary_ntx": profile.ntx_baseline,
+            "bone_ntx_pct_baseline": 0,
+            "urine_volume_24h": 2.7,
+            "sweat_rate": profile.sweat_reference_rate_l_h,
+            "sweat_sodium_concentration": profile.sweat_reference_sodium_mmol_l,
+            "sweat_sodium_flux": (
+                profile.sweat_reference_rate_l_h * profile.sweat_reference_sodium_mmol_l
+            ),
+        }
+    )
+    return values

@@ -10,8 +10,8 @@ from typing import Literal, Protocol
 from .clock import Clock, timestamp
 from .frequency import FREQUENCIES
 from .models import AstronautProfile, Observation, Reading, Settings
-from .physiology import DAY, crew_values, environment_values
-from .registry import CHANNELS
+from .physiology import DAY, crew_values, environment_values, startup_crew_values
+from .registry import CHANNELS, Channel
 from .units import convert
 
 
@@ -156,6 +156,7 @@ class Scheduler:
         self.counter = 0
         self.sequences: dict[tuple[str, str], int] = {}
         self.generated = 0
+        self.started = False
         for rule in rules(settings):
             members = [
                 c for c in CHANNELS.values() if c.group == rule.group and c.id in self.enabled
@@ -165,7 +166,7 @@ class Scheduler:
             scope = members[0].scope
             owners = tuple(self.profiles) if scope == "crew" else (settings.environment.id,)
             for owner in owners:
-                due = rule.next_after(-1)
+                due = rule.next_after(0)
                 if due is not None:
                     self._push(due, rule, scope, owner)
 
@@ -196,34 +197,77 @@ class Scheduler:
             # independent publication clocks. Never emit the sibling on this tick.
             if c.group != event.rule.group:
                 continue
-            key = (event.owner, name)
-            sequence = self.sequences.get(key, 0) + 1
-            self.sequences[key] = sequence
-            wire_value = value if isinstance(value, bool) else convert(value, c.factor, c.offset)
-            reading = Reading(
-                channel=name,
-                value=wire_value,
-                unit=c.unit,
-                measured_at=timestamp(self.settings.start, instant),
+            self._publish(c, value, event.owner, event.scope, instant)
+
+    def _publish(
+        self,
+        channel: Channel,
+        value: float | bool,
+        owner: str,
+        scope: Literal["crew", "environment"],
+        instant: float,
+        *,
+        startup: bool = False,
+    ) -> None:
+        """Convert once and enqueue immutable data with explicit sampling provenance."""
+        key = (owner, channel.id)
+        sequence = self.sequences.get(key, 0) + 1
+        self.sequences[key] = sequence
+        wire_value = (
+            value if isinstance(value, bool) else convert(value, channel.factor, channel.offset)
+        )
+        reading = Reading(
+            channel=channel.id,
+            value=wire_value,
+            unit=channel.unit,
+            measured_at=timestamp(self.settings.start, instant),
+        )
+        # Startup fixtures are already available profile values, not a newly drawn
+        # laboratory specimen. Communication delay still applies to their delivery.
+        lab_delay = self.settings.lab_delay_s if channel.lab and not startup else 0
+        self.sink.submit(
+            Observation(
+                reading=reading,
+                scope=scope,
+                owner=owner,
+                sensor_id=f"{owner}:{channel.group}",
+                sequence=sequence,
+                acquired_s=instant,
+                available_s=instant + lab_delay + self.settings.environment.comm_delay_s,
+                window_s=0 if startup else channel.window_s,
+                sample_kind="startup_baseline" if startup else "scheduled",
             )
-            self.sink.submit(
-                Observation(
-                    reading=reading,
-                    scope=event.scope,
-                    owner=event.owner,
-                    sensor_id=f"{event.owner}:{event.rule.group}",
-                    sequence=sequence,
-                    acquired_s=instant,
-                    available_s=instant
-                    + (self.settings.lab_delay_s if c.lab else 0)
-                    + self.settings.environment.comm_delay_s,
-                    window_s=c.window_s,
+        )
+        self.generated += 1
+
+    def initialize(self) -> None:
+        """Emit exactly one baseline per enabled owner/channel, once per worker run.
+
+        Normal rules are anchored to their original phases and skip time zero,
+        so channels that already had a baseline event do not emit a duplicate.
+        Resuming this same scheduler never repeats initialization.
+        """
+        if self.started:
+            return
+        self.started = True
+        for profile in self.settings.crew:
+            values = startup_crew_values(profile, self.settings.seed)
+            for channel in CHANNELS.values():
+                if channel.scope == "crew" and channel.id in self.enabled:
+                    self._publish(channel, values[channel.id], profile.id, "crew", 0, startup=True)
+        environment = self.settings.environment
+        values = {}
+        for group in ("co2", "light", "radiation", "spe"):
+            values.update(environment_values(group, 0, environment, self.settings.seed))
+        for channel in CHANNELS.values():
+            if channel.scope == "environment" and channel.id in self.enabled:
+                self._publish(
+                    channel, values[channel.id], environment.id, "environment", 0, startup=True
                 )
-            )
-            self.generated += 1
 
     async def run(self, until: float | None = None) -> None:
         """Acquire until a finite logical duration or cancellation (continuous default)."""
+        self.initialize()
         while self.events:
             event = self.events[0]
             if until is not None and event.due > until:

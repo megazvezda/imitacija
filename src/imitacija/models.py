@@ -143,6 +143,7 @@ class Observation(FrozenModel):
     acquired_s: float
     available_s: float
     window_s: float = 0
+    sample_kind: Literal["startup_baseline", "scheduled"] = "scheduled"
 
     @model_validator(mode="after")
     def timing(self) -> Observation:

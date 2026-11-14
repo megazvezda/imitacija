@@ -27,6 +27,7 @@ class PreviewEntry(FrozenModel):
     source_unit: str
     baseline_source_value: float | None = None
     window_s: float
+    sample_kind: str
     reading: Reading
 
 
@@ -105,6 +106,7 @@ class PreviewState:
                             / CHANNELS[o.reading.channel].factor
                         ),
                         window_s=o.window_s,
+                        sample_kind=o.sample_kind,
                         reading=o.reading,
                     )
                     for o in sorted(

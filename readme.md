@@ -2,6 +2,22 @@
 
 Generate synthetic sensor telemetry and send it to a separate backend for analysis.
 
+simple:
+1) supply the .toml files in /config/, specifically the base_url
+base_url = "http://127.0.0.1:8000" <-change to your backend,
+route is also can be changed, by default it sends to:
+data_route = "/data"
+
+2)run
+
+```sh
+uv run imitacija --config config/healthy.toml --validate-config
+```
+3)depending on a config, it will simulate a scenario.
+
+healthy.toml is healthy metrics all the time and they will not deviate and will not reach critical or concerning tresholds, others will behave like a disease scenario, where an austronaut is fine at first but then gets sick over time.
+
+
 ## See generated JSON before connecting a backend
 
 Start the optional local JSON preview:
@@ -13,7 +29,7 @@ uv run imitacija --config config/healthy.toml --preview
 
 Open **http://localhost:8080** to see raw JSON. `/readings` and `/json` return the same snapshot; `/dictionary` explains channel units, specimens and sampling schedules. Refresh to see the latest available results. Use `--port 8081` if port 8080 is occupied.
 
-Each entry contains owner/scope, wire and conventional units/values, optional configured baseline, window duration, and a `reading` object. **`reading` is exactly the four-field JSON body normal mode would POST**, including its SI `unit`. Preview mode keeps only the latest result per owner/channel in RAM and writes no telemetry files. Laboratory results still wait for collection and processing; missing values are not filled with guesses.
+Each entry contains owner/scope, wire and conventional units/values, optional configured baseline, window duration, and a `reading` object. **`reading` is exactly the four-field JSON body normal mode would POST**, including its SI `unit`. Preview mode keeps only the latest result per owner/channel in RAM and writes no telemetry files. All enabled metrics first appear as startup baseline fixtures; subsequent laboratory results wait for collection and processing.
 
 For faster inspection, add `--speed 60`. For sparse laboratory sessions across mission days:
 
@@ -22,6 +38,14 @@ uv run imitacija --config config/research_demo.toml --preview
 ```
 
 That finite demo closes after about 26 seconds plus shutdown; inspect it while it runs. Ctrl+C stops the preview and clears its values. Normal mode sends to `data_route` and opens no local preview server.
+
+### Startup readings
+
+At every process start, **each enabled metric is emitted once at simulation time zero**, for every configured crew member and once for each environment channel. After that, the existing schedules continue at their original phases: daily, weekly, monthly, windowed or event-gated. A time-zero event is represented by the startup reading, not a duplicate request. Disabled channels remain disabled.
+
+Startup readings are immediately available synthetic profile fixtures, so they do not wait for `lab_delay_s`. Configured communication delay and normal delivery limits still apply. They use the same four-field JSON body, with `X-Sample-Kind: startup_baseline` identifying their provenance. Regular readings use `X-Sample-Kind: scheduled`; JSON preview exposes `sample_kind` alongside the body.
+
+Startup HRV, CGM, urine-volume and sweat values are configured healthy references, **not completed in-flight windows or samples from a dry patch**. Their actual collection window is zero; subsequent scheduled readings retain their proper windows and assay delay. The dictionary describes startup behavior separately from normal acquisition schedules.
 
 ### Sampling and hydration inputs
 

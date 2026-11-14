@@ -547,6 +547,11 @@ class Dictionary(FrozenModel):
     environment: Environment
     channels: tuple[ChannelMetadata, ...]
     excluded: tuple[str, ...] = EXCLUDED
+    startup_behavior: str = (
+        "One immediately available synthetic startup_baseline per enabled owner/channel, "
+        "then the listed schedule. Startup has no completed collection window or lab delay; "
+        "communication delay still applies. Headers and preview metadata identify sample kind."
+    )
 
 
 def dictionary(

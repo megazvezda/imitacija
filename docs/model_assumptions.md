@@ -4,7 +4,7 @@ The current scope is [NASA_MONITORING_PLAN.md](../NASA_MONITORING_PLAN.md). The 
 
 ## Time and collection
 
-The active frequency authority is [frequency_table.md](frequency_table.md), interpreted in [frequency_mapping.md](frequency_mapping.md), and implemented in `frequency.py`. This supersedes earlier six-second sampling and sparse NASA research-session defaults. NASA examples remain evidence about actual study protocols, not the active simulator's requested cadence.
+After the one-time startup baseline described below, the active frequency authority is [frequency_table.md](frequency_table.md), interpreted in [frequency_mapping.md](frequency_mapping.md), and implemented in `frequency.py`. This supersedes earlier six-second sampling and sparse NASA research-session defaults. NASA examples remain evidence about actual study protocols, not the active simulator's requested cadence.
 
 Run day 0 begins at `start`; routine hours are relative to that boundary. HR and HRV use complete 60-second windows, once per minute; respiration also uses 60 seconds. Initial result phases are 60, 61 and 77 s respectively. Scalar temperature, SpO2, CO2, light, dose rate and SPE are 1 Hz with independent phases. Sweat flow/concentration are 1 Hz only while active/wet; 60-second local sodium-loss windows publish once per minute. CGM evaluates 5-second latent inputs over a complete 300-second reporting window. Integrated monitor dose publishes once per minute.
 
@@ -65,3 +65,12 @@ Local sweat reference flow defaults to `0.42/1800 L/h` and reference sodium to `
 ## Local JSON inspection
 
 The optional preview exposes the latest available result per owner/channel, along with source-unit and configured-baseline context, in a JSON snapshot. It does not retain historical observations or run frontend code. The root path, `/readings` and `/json` return the same schema; `/dictionary` contains measurement and timing metadata. Backend POST delivery and its four-field JSON body are independent of preview mode.
+
+
+## Mandatory run-start baseline
+
+Every enabled owner/channel starts with exactly one fixture at time zero, tagged `startup_baseline`. This includes gated assays with no later events, full-day urine volume, HRV/CGM windows, and local sweat channels that would otherwise be unavailable at rest. This is an explicit initialization override to the normal collection requirements, not a change to subsequent frequencies. No extra time-zero acquisition is emitted if a normal rule previously started at zero.
+
+Startup point channels use their modeled time-zero values. Startup HR is the configured resting pulse, RMSSD is the profile reference, respiration is 14/min, glucose is approximately 5.1 mmol/L with the existing channel noise, NTx equals its baseline with 0% change, and nominal 24-hour urine volume is 2.7 L. Local sweat flow and sodium use the configured references and their product. Environment values use the latent model at zero, including configured initial monitor dose. No pre-start history or collection is synthesized.
+
+The fixtures have a zero actual collection window and no lab processing delay because they are supplied baseline values, not new assay results. Communication delay remains active. Scheduled windows still have to complete normally; future labs retain their configured processing delay and future resting sweat sampling remains unavailable. Both kinds use the same four-field reading; transport/preview metadata distinguishes them so downstream clinical analysis can exclude synthetic initialization when appropriate.

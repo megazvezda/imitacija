@@ -2,6 +2,10 @@
 
 [frequency_table.md](frequency_table.md) now takes precedence over the earlier six-second override and the original NASA-inspired simulator intervals. The executable mapping is `src/imitacija/frequency.py`. These are project timing requirements; adopting them does not establish that NASA operates these exact sensors or intervals.
 
+## Startup override
+
+The user-requested run-start initialization supersedes waiting for a channel's first scheduled session: every enabled owner/channel emits one immediately available `startup_baseline` at time zero, then follows the normal schedule below. This includes assays with empty event lists, unless the channel itself is disabled. Startup replaces any event already at time zero; later event times and periodic/calendar phases are not shifted. Startup values have no completed collection window and bypass laboratory processing delay; communication delay still applies. See [backend_contract.md](backend_contract.md#startup-initialization) for provenance and aggregate-window interpretation.
+
 ## Acquisition versus publication
 
 The matrix contains three different layers. Raw acquisition describes a sensor input; windowed publication describes a computed measurement; clinical evaluation describes analysis of those measurements. A 100 Hz PPG input is not 100 independent heart-rate or RMSSD results per second.
@@ -42,7 +46,7 @@ PPG is represented by procedural beat timing with 10 ms peak localization, not a
 
 The default BP session begins at 08:00 and repeats hourly indefinitely. `bp_session_duration_s` can still restrict it to an explicit finite session. Set `stand_test_start_s = 600` to request a 10 Hz paired-pressure burst over `[600, 780)` seconds. This is synthetic continuous pressure, **not ten cuff inflations per second**; it does not introduce illness or a POTS diagnosis. No burst runs by default.
 
-`il6_event_times_s = [0, 43200]` schedules a baseline and one explicitly requested IL-6 collection. An empty list disables those acquisitions. `troponin_event_times_s` follows the same convention. Configured event lists are the gates; no clinical rule or mandatory two-hour exercise exclusion is inferred from the word “gated.” Result availability remains delayed by `lab_delay_s`, which is separate from sampling frequency.
+`il6_event_times_s = [0, 43200]` schedules a baseline and one explicitly requested IL-6 collection. An empty list disables later scheduled assays; the mandatory startup baseline is still emitted. `troponin_event_times_s` follows the same convention. Configured event lists are the gates; no clinical rule or mandatory two-hour exercise exclusion is inferred from the word “gated.” Result availability remains delayed by `lab_delay_s`, which is separate from sampling frequency.
 
 `radiation_interval_s` and `spe_heartbeat_s` default to 1 s. Explicit configuration overrides remain supported and appear in the dictionary. A deliberately different configured interval is a project override of the matrix default.
 
@@ -52,4 +56,4 @@ Stable channel identifiers remain in place: matrix `hs_ctni` → `troponin_i`; `
 
 This task tunes existing channels. The table's unimplemented fluid-intake prompts, urine calcium, activity counts, EEG/PVT, mood, sleep, kinematics, visual tests and cephalic/ICP measurements are not silently added. NEWS2/qSOFA/SIRS, shock index, hydration balance, cumulative sweat-volume summaries, circadian/slope features, five-second alarm decisions and hourly trend reviews belong to the backend. Existing local sodium-loss rate is windowed, but no extra cumulative sweat-volume channel is introduced.
 
-The dictionary exposes `raw_acquisition_hz`, `frequency_matrix_rows`, `frequency_basis`, actual collection schedule and observation-window duration. JSON-preview refresh, HTTP retry/backoff, laboratory availability and measurement acquisition remain separate clocks. Accelerated previews may omit intermediate 1 Hz results between JSON-preview refreshes. Missing or not-yet-available windows remain absent; readings are never fabricated to fill a shared tick.
+The dictionary exposes `raw_acquisition_hz`, `frequency_matrix_rows`, `frequency_basis`, actual collection schedule and observation-window duration. JSON-preview refresh, HTTP retry/backoff, laboratory availability and measurement acquisition remain separate clocks. Accelerated previews may omit intermediate 1 Hz results between JSON-preview refreshes. After the separately labelled startup fixture, not-yet-available scheduled windows remain absent; no regular readings are fabricated to fill a shared tick.

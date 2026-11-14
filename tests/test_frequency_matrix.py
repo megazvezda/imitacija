@@ -21,10 +21,15 @@ class Samples:
         self.items.append(value)
 
 
-def acquire(settings: Settings, until: float) -> list[Observation]:
+def acquire(
+    settings: Settings,
+    until: float,
+    *,
+    include_startup: bool = False,
+) -> list[Observation]:
     sink = Samples()
     asyncio.run(Scheduler(settings, ManualClock(), sink).run(until))
-    return sink.items
+    return [o for o in sink.items if include_startup or o.sample_kind == "scheduled"]
 
 
 def test_all_scalar_one_hz_streams_have_independent_phases() -> None:
@@ -40,8 +45,10 @@ def test_all_scalar_one_hz_streams_have_independent_phases() -> None:
     first: set[float] = set()
     for name in selected:
         times = [o.acquired_s for o in items if o.reading.channel == name]
-        assert len(times) == 4
-        assert [b - a for a, b in zip(times, times[1:], strict=False)] == pytest.approx([1, 1, 1])
+        assert len(times) == (3 if name in {"ambient_ppco2", "ambient_dose_rate"} else 4)
+        assert [b - a for a, b in zip(times, times[1:], strict=False)] == pytest.approx(
+            [1] * (len(times) - 1)
+        )
         first.add(times[0])
     assert len(first) > 1
 
@@ -49,7 +56,7 @@ def test_all_scalar_one_hz_streams_have_independent_phases() -> None:
 def test_stand_test_burst_is_optional_bounded_and_does_not_duplicate_cuff() -> None:
     names = ("bp_systolic", "bp_diastolic")
     settings = Settings(enabled_channels=names, bp_session_start_s=0, stand_test_start_s=100)
-    items = acquire(settings, 3600)
+    items = acquire(settings, 3600, include_startup=True)
     systolic = [o for o in items if o.reading.channel == "bp_systolic"]
     diastolic = [o for o in items if o.reading.channel == "bp_diastolic"]
     burst = [o for o in systolic if 100 <= o.acquired_s < 280]
@@ -59,7 +66,9 @@ def test_stand_test_burst_is_optional_bounded_and_does_not_duplicate_cuff() -> N
     ] == pytest.approx([0.1] * 1799)
     assert [o.acquired_s for o in systolic if not 100 <= o.acquired_s < 280] == [0, 3600]
     assert [o.acquired_s for o in systolic] == [o.acquired_s for o in diastolic]
-    normal = acquire(Settings(enabled_channels=names, bp_session_start_s=0), 3600)
+    normal = acquire(
+        Settings(enabled_channels=names, bp_session_start_s=0), 3600, include_startup=True
+    )
     assert len(normal) == 4  # Burst does not run unless explicitly configured.
 
 

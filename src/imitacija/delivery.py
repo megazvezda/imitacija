@@ -115,6 +115,7 @@ class Delivery:
             "X-Simulation-Scope": observation.scope,
             "X-Owner-ID": observation.owner,
             "X-Sensor-ID": observation.sensor_id,
+            "X-Sample-Kind": observation.sample_kind,
             "X-Window-Seconds": str(observation.window_s),
             "X-Simulation-Start": self.settings.start.isoformat(),
             "X-Simulation-Speed": str(self.settings.speed),

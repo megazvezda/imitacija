@@ -31,6 +31,7 @@ def test_real_http_worker_posts_to_local_backend(
                     "body": json.loads(body),
                     "scope": self.headers["X-Simulation-Scope"],
                     "owner": self.headers["X-Owner-ID"],
+                    "sample_kind": self.headers["X-Sample-Kind"],
                 }
             )
             self.send_response(204)
@@ -50,7 +51,7 @@ def test_real_http_worker_posts_to_local_backend(
                     base_url=f"http://127.0.0.1:{server.server_port}",
                     data_route="/api/data",
                     enabled_channels=("heart_rate", "ambient_ppco2", "troponin_i"),
-                    lab_delay_s=0,
+                    lab_delay_s=86400,
                     speed=20,
                     duration_s=8,
                     shutdown_drain_wall_s=2,
@@ -68,6 +69,8 @@ def test_real_http_worker_posts_to_local_backend(
         ("crew", "crew-1"),
         ("environment", "iss_cabin"),
     }
+    startup = [r for r in received if r["sample_kind"] == "startup_baseline"]
+    assert {r["body"]["channel"] for r in startup} == {"heart_rate", "ambient_ppco2", "troponin_i"}
     for result in received:
         assert set(result["body"]) == {"channel", "value", "unit", "measured_at"}
         assert result["body"]["unit"]
@@ -134,7 +137,7 @@ def test_preview_serves_json_without_backend_posts(
                 snapshot = response.json()
                 assert snapshot["mode"] == "preview"
                 for _ in range(50):
-                    if len(snapshot["readings"]) >= 2:
+                    if len(snapshot["readings"]) >= 3:
                         break
                     await asyncio.sleep(0.02)
                     snapshot = (await client.get(states[0].url + "/readings")).json()
@@ -142,7 +145,11 @@ def test_preview_serves_json_without_backend_posts(
                 assert {entry["reading"]["channel"] for entry in entries} == {
                     "heart_rate",
                     "ambient_ppco2",
-                }  # Delayed lab fixture is not yet deliverable.
+                    "troponin_i",
+                }  # Startup fixtures are available even when future lab results are delayed.
+                troponin = next(e for e in entries if e["reading"]["channel"] == "troponin_i")
+                assert troponin["sample_kind"] == "startup_baseline"
+                assert troponin["window_s"] == 0
                 assert {entry["scope"] for entry in entries} == {"crew", "environment"}
                 assert snapshot["speed"] == 200
                 assert snapshot["crew_ids"] == ["crew-1"]
