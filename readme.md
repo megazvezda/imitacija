@@ -2,7 +2,9 @@
 
 Generate synthetic sensor telemetry and send it to a separate backend for analysis.
 
-The tables below inventory the biomarkers and related telemetry explicitly mentioned in [Tiered Master System Specification & Implementation Plan](Tiered%20Master%20System%20Specification%20%26%20Implementation%20Plan.pdf). Page numbers refer to the PDF's printed pages (1–6). This is an extraction of the project's specification, not independent clinical validation. Values labelled **example** are sample payload values, not normal ranges. **Unspecified** means the PDF does not supply that detail.
+**Current plan:** [NASA monitoring, acquisition schedules and implementation](NASA_MONITORING_PLAN.md). Current scope is biochemical biomarkers (including newly specified IL-6), vital signs and objective hydration/nutrition measurements, plus an independent environmental stream. Sleep, mood, cognitive/visual assessments and sensor-physics/digital-twin outputs are excluded. The worker POSTs readings and does not persist telemetry. See [ranges.md](ranges.md) for cited, context-specific ranges and [nigelNote.md](nigelNote.md) for the reading contract.
+
+The source is now the [updated 10-page specification](Tiered%20Master%20System%20Specification%20%26%20Implementation%20Plan%20%281%29-1.pdf). The tables below are a **historical extraction of the previous six-page edition**; their page numbers, thresholds, formulas and broad scope are not current implementation requirements. Retained for traceability only. Values labelled **example** are sample payload values, not normal ranges. **Unspecified** means the previous PDF did not supply that detail.
 
 ## Biochemical biomarkers to simulate
 

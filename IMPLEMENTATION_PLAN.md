@@ -1,5 +1,7 @@
 # Python astronaut telemetry simulator: implementation plan
 
+> **Superseded scope and schedules:** use [NASA_MONITORING_PLAN.md](NASA_MONITORING_PLAN.md) for the updated 10-page PDF, included biochemical/vital channels, independent environment stream, NASA evidence and proposed acquisition intervals. This earlier plan is retained for design history. Its instructions to implement every README row, sleep/mood/EEG, sensor physics and derived diagnostic outputs do not apply to the current scope. Its push-only/no-persistence architecture and type-hint/documentation requirements remain applicable where consistent with the new plan.
+
 ## 1. Scope and outcome
 
 Build a Python service that simulates every measurement channel in `readme.md`, maintains independent collection times, and POSTs each new reading to the receiving backend in place of a real NASA data source. This is a push-only generator with no persistent telemetry storage, inbound telemetry API, or NASA connection. The first version represents one healthy astronaut with a regular sleep, meal, work, and moderate exercise routine. Disease scenarios and scenario-switching controls are explicitly deferred.

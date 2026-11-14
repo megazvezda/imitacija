@@ -1,6 +1,8 @@
 # Evidence and ranges for synthetic astronaut telemetry
 
-Research checked: **2026-11-14**. Scope: every measurement and derived-output row in `readme.md`, with channel names aligned to `IMPLEMENTATION_PLAN.md`. The simulator generates readings and POSTs them; this document does not introduce telemetry storage.
+Research checked: **2026-11-14**, including the updated 10-page PDF. **Current scope and acquisition plan: [NASA_MONITORING_PLAN.md](NASA_MONITORING_PLAN.md).** Implement biochemical markers (including IL-6), vital signs and objective hydration/nutrition measurements; environmental channels have separate ownership and schedules. The simulator generates readings and POSTs them without persistent telemetry storage.
+
+This file also retains historical research for the broader original README inventory. Sections 3 and 5, movement/fluid-index rows in Section 2, and associated derived outputs are **outside the current implementation scope**. Their old PDF examples and sensor calibration audit are archival, not requirements for the updated PDF. The current plan takes precedence for included channels, identifiers, cadence and PDF discrepancies. A simulated daily routine is model input; sleep and mood are not tracked outputs.
 
 ## How the next agent must use this document
 
@@ -24,13 +26,16 @@ For `nigelNote.md`'s `evaluation`, `normal` can represent an applicable referenc
 
 ## 1. Biochemical biomarkers
 
+**NASA-specific vitamin D qualification:** NASA OCHMO-STD-100.1A Rev. A §6.7.1 gives a preflight desired 25-OH D interval of **35–90 ng/mL**, with testing at crew-surgeon discretion. This differs from the NIH population interpretation below, particularly above 50 ng/mL. Keep both policies explicitly scoped; do not merge them into a universal normal band. The current plan proposes **35–45 ng/mL** only as a healthy simulation target. Daily/weekly supplementation in NASA's table is not daily/weekly blood collection. [NASA medical standard][S61]
+
 | Channel / specimen | Reference or expected condition | Abnormal / concerning | Severe / urgent interpretation | Evidence and simulation constraints |
 | --- | --- | --- | --- | --- |
+| **IL-6 / `il6_serum`** — serum, pg/mL | Mayo IL6DX reference: **<6.4 pg/mL**. | **≥6.4** is above this assay's interval; increased IL-6 is nonspecific. A normal result does not exclude inflammation. | **No universal critical value** or autonomous infection/sepsis diagnosis. | **Lab:** [Mayo IL6DX][S60]. The updated PDF's >3 pg/mL warning and fixed 2-hour exercise exemption are not validated for this assay. NASA cytokine studies used plasma and session-based sampling; their assay cannot inherit a serum interval automatically. See the current plan for that distinction. |
 | **Glucose** — fasting venous plasma, mg/dL | Fasting <100; combine with the hypoglycemia boundary to use **70–99** as a conventional fasting simulation band. | **100–125**: prediabetes criterion; **≥126**: diabetes criterion, ordinarily requiring confirmation. These are fasting criteria, not post-meal alarm bands. | See separate low-glucose and crisis rules below. | **Clinical:** [NIDDK diagnostic criteria][S01], independently consistent with [CDC testing guidance][S02]. Declare fasting duration; capillary/CGM interstitial readings are not identical to venous diagnostic tests. |
 | **Glucose, low** — mg/dL | **≥70** avoids the ADA low-glucose threshold; this alone does not define a healthy upper limit. | Level 1: **54 ≤ glucose <70**. | Level 2: **<54**. Level 3: altered functioning requiring another person's help, **regardless of the measured concentration**. | **Clinical:** [ADA 2025 patient classification][S03], cross-checked against [ADA 2026 classification][S04]. Do not invent a numerical “level 3” boundary. |
 | **Glucose, high / crisis** — plasma | Fasting limits above; standardized 2-hour OGTT: <140 mg/dL, 140–199 impaired tolerance, ≥200 diabetes criterion. | A random glucose ≥200 mg/dL has diagnostic significance with classic symptoms. It is not by itself a crisis definition. | HHS includes **glucose ≥600 mg/dL**, but also hyperosmolality and other criteria. DKA requires diabetes/hyperglycemia plus ketosis and acidosis; it can occur without extreme glucose. | **Clinical:** [NIDDK][S01], [2024 multi-society crisis consensus][S05]. A future DKA/HHS scenario needs ketones, pH/bicarbonate, osmolality and clinical context beyond the current channel set. |
 | **Cortisol — saliva, LC-MS/MS**, ng/dL or nmol/L | Mayo SALCC: immediately after waking **85–620 ng/dL ≈2.35–17.11 nmol/L**; immediately before bed **<127 ng/dL ≈3.50 nmol/L**. | Outside the time-specific interval merits context-specific assessment; persistent elevation at bedtime differs from a normal waking rise. | **No universal salivary “critical cortisol” value.** Adrenal crisis cannot be assigned from this channel alone. | **Lab:** [current Mayo SALCC assay][S06]. Use time relative to sleep, not an arbitrary UTC hour. Not transferable to sweat, total serum cortisol, or an uncalibrated GFET. |
-| **Cortisol — total serum**, µg/dL or nmol/L; alternative specimen, not a second independent signal | Mayo CORT: morning **7–25 µg/dL ≈193–690 nmol/L**; afternoon **2–14 µg/dL ≈55–386 nmol/L**. | Interpret with collection time, medications, binding proteins, illness, and assay. | No universal random serum concentration separates stable from critically ill. | **Lab:** [Mayo CORT][S07]. A different Mayo LC-MS/MS total/free assay has a different morning total interval (5–25): [CORTO][S08]. This cross-check demonstrates why selecting the assay is mandatory. The PDF's 10/22.4/30 nM values are not generic serum thresholds. |
+| **Cortisol — total serum**, µg/dL or nmol/L; alternative specimen, not a second independent signal | Mayo CORT: morning **7–25 µg/dL ≈193–690 nmol/L**; afternoon **2–14 µg/dL ≈55–386 nmol/L**. | Interpret with collection time, medications, binding proteins, illness, and assay. | No universal random serum concentration separates stable from critically ill. | **Lab:** [Mayo CORT][S07]. A different Mayo LC-MS/MS total/free assay has a different morning total interval (5–25): [CORTO][S08]. This cross-check demonstrates why selecting the assay is mandatory. The updated PDF's ISF 15–30/>30 nM warning/critical bands are not generic serum thresholds. |
 | **hs-cTnI / `troponin_i`** — serum/plasma, ng/L | Example declared assay: UW Beckman hs-cTnI **0–15 ng/L for women; 0–20 ng/L for men**. These are laboratory reporting intervals tied to 99th-percentile limits. | Above the assay's upper reference limit indicates myocardial injury; serial rise/fall and clinical context distinguish acute processes. | No assay-independent “critical” number or myocardial infarction diagnosis. Symptoms/ECG and serial measurements matter. | **Lab/Clinical:** [UW Beckman guide, effective 2026-04-01][S09]. **1 ng/mL = 1000 ng/L**. The PDF's >0.04 ng/mL (=40 ng/L) is not a universal hs-cTnI rule. |
 | **Lactate** — adult plasma, mmol/L | Mayo LACS1: **0.5–2.0**. | **>2.0** is above this assay's adult interval; resting illness and exercise must be distinguished. | Mayo describes **>5 with pH <7.25** as significant lactic acidosis, not lactate alone. Septic shock requires infection/sepsis, vasopressors to maintain MAP ≥65 mmHg, and lactate >2 despite adequate fluids. | **Lab/Clinical:** [Mayo lactate][S10], [Sepsis-3][S11]. Do not transfer blood thresholds to sweat lactate or declare healthy exercise septic shock. |
 | **Urinary NTx** — creatinine-normalized, nmol bone-collagen equivalents/mmol creatinine | UW assay: adult men **21–83**; premenopausal women **17–94**; postmenopausal women **26–124**. | Above the relevant assay interval or a reproducible rise from a matched baseline suggests increased turnover. | No verified universal “critical” NTx concentration or percent rise. It is not a direct fracture or renal-stone diagnosis. | **Lab:** [UW NTx assay][S12]. Compare collections at the same time of day. `bone_ntx_pct_baseline = 100 × (current/baseline − 1)`; unchanged = 0%. Absolute reference intervals cannot be reinterpreted as percentages. |
@@ -84,7 +89,7 @@ Add 2 for supplemental oxygen; add 3 for new confusion or response only to voice
 
 Simulation interpretation: a zero NEWS2 contribution is not proof of health (for example, its SBP zero-score interval includes hypertension). Round observations to the chart's measurement precision before classification; do not leave gaps between decimal temperatures such as 36.0 and 36.1.
 
-## 3. Neurocognitive, sleep, behavioral, and visual channels
+## 3. Neurocognitive, sleep, behavioral, and visual channels — historical, excluded
 
 | Channel | Expected / reference | Concerning / severe interpretation | Evidence and limits |
 | --- | --- | --- | --- |
@@ -106,18 +111,18 @@ Simulation interpretation: a zero NEWS2 contribution is not proof of health (for
 
 | Channel | Expected / permitted context | Concerning / high-exposure criterion | Interpretation and evidence |
 | --- | --- | --- | --- |
-| **Ambient ppCO2**, mmHg or Pa | NASA nominal habitat requirement: **average over 1 h ≤3 mmHg ≈400 Pa**. | Exceeding that average is operationally off-nominal. NASA's cited requirement does not supply a universal off-nominal emergency band. | **Operational:** [NASA-STD-3001 Vol. 2 Revision E, V2 6004][S46]. Concentration in ppm requires total cabin pressure: `ppCO2 = ppm × total_pressure / 10^6`. This is not blood PaCO2. |
+| **Ambient ppCO2**, mmHg or Pa | NASA nominal habitat requirement: **average over 1 h ≤3 mmHg ≈400 Pa**. | Exceeding that average is operationally off-nominal. NASA's cited requirement does not supply a universal off-nominal emergency band. | **Operational:** [NASA-STD-3001 Vol. 2, current Revision F text, V2 6004][S46]. Concentration in ppm requires total cabin pressure: `ppCO2 = ppm × total_pressure / 10^6`. This is not blood PaCO2. |
 | **CO2 comparison limits**, ppm, terrestrial occupational | NIOSH REL time-weighted concentration **5000 ppm**. | Short-term **30,000 ppm**; **40,000 ppm IDLH**. | **Operational:** [NIOSH Pocket Guide][S47], [IDLH rationale][S48]. Keep averaging durations (TWA up to 10 h workday; short-term 15 min) and setting explicit; see [NIOSH definitions][S59]. These are not NASA cabin targets. |
 | **Light exposure**, photopic lux | No single normal lux value across work, sleep and tasks. | Excess evening/night light or insufficient day light can be a circadian input. | **Consensus:** [Brown et al.][S49] recommends **melanopic EDI ≥250 lux daytime**, **≤10 lux during the 3 h before bed**, **≤1 lux during sleep**, measured at the eye. Photopic lux is not melanopic EDI: do not apply these thresholds to the existing lux channel without spectral information. |
 | **Cumulative radiation dose**, mSv | ALARA; NASA **career effective dose <600 mSv**, including prior missions. | ≥600 exceeds that career requirement; it is not the onset of acute radiation syndrome. | **Operational:** [NASA V1 4030][S30]. Effective dose in Sv cannot substitute for organ absorbed dose in Gy or NASA mGy-Eq. |
 | **Radiation dose rate**, µSv/h | Mission/location dependent. For systems supporting >60 days, NASA GCR design requirements are **<1.3 mSv/day free space**, **<0.9 mSv/day planetary surface**. | Equivalent constant averages ≈**54.17** and **37.5 µSv/h**, respectively, are design comparisons, not immediate alarm thresholds. | **Operational:** [NASA V1 4033][S30]. Do not treat these as expected healthy ranges or apply planetary limits to every environment. A medical critical rate requires spectrum, duration, shielding and dose definition. |
 | **SPE flag**, boolean | False for the ordinary scenario. | True marks an environmental event requiring a mission-specific hazard policy, not proof of current illness. | **Operational:** NASA V1 4031 specifies protection from a **design-reference SPE to <250 mSv effective dose**; it does not define a sensor flag trigger. [NASA][S30]. Never wait for accumulated dose to reach that design limit before representing an event alert. |
 
-Dose consistency: for a µSv/h rate, `delta_dose_mSv = rate × elapsed_seconds / 3_600_000`. Accumulated dose must not decrease because of sensor noise; noisy instantaneous measurements and latent integrated dose are separate model quantities.
+Dose consistency: for a µSv/h rate, `delta_dose_mSv = rate × elapsed_seconds / 3_600_000`. Accumulated dose must not decrease because of sensor noise; noisy instantaneous measurements and latent integrated dose are separate model quantities. **Current ownership:** integrate an ambient monitor's declared dose quantity separately from a person's effective/career dose. The career and design limits above do not directly classify an ambient counter. Do not convert absorbed dose in Gy to equivalent/effective dose in Sv without a declared radiation/exposure model. See the current plan for environmental identifiers and schedules.
 
-## 5. Sensor physics: valid signals are not medical severity ranges
+## 5. Sensor physics — historical, excluded
 
-The following constants come from the project PDF. They may be used in a labelled **synthetic transfer model**, but their numerical calibration was not independently validated by this research.
+The following constants and audit refer to the **previous six-page PDF**, not the updated ten-page edition. They are retained as historical research only: do not implement these values. The revised PDF changes displacement/gauge-factor bands and examples; sensor electrical outputs are outside the current scope. Their numerical calibration was not independently validated by this research.
 
 | Channel | Mathematical / project domain | Normal/concerning/critical status |
 | --- | --- | --- |
@@ -192,7 +197,9 @@ The clinical tables intentionally preserve the source units so thresholds remain
 
 Biochemical conversion factors were cross-checked against [Mayo's SI conversion catalog][S58]. Unit conversion does not transfer assay validity, turn photopic lux into melanopic EDI, or turn effective radiation dose into absorbed dose.
 
-## 9. Verification record and conflicts with the project PDF
+## 9. Original verification record and conflicts with the previous PDF
+
+The current 10-page PDF comparison and NASA cadence verification are in [NASA_MONITORING_PLAN.md](NASA_MONITORING_PLAN.md). This original record explains earlier research and does not claim that old sample/formula inconsistencies remain unchanged in the new PDF.
 
 | Check | Result |
 | --- | --- |
@@ -228,6 +235,7 @@ Sources are linked next to the claims they support. Government agencies and guid
 | S30, S46–S48 | NASA standards/official requirements and CDC/NIOSH exposure limits. Authoritative operational limits with distinct scopes. |
 | S35–S38, S49 | Sleep society guidelines/consensus and circadian expert consensus. Suitable for sleep/light recommendations, not universal disease thresholds. |
 | S50–S52 | Sensor research. S51 full article read; S50 indexed content/bibliography checked with limited page access; S52 publisher record/title only, full text blocked. No unverified GFET coefficients adopted. |
+| S60–S61 | Performing-laboratory IL-6 reference and NASA medical standard. Support serum assay interpretation and astronaut vitamin D policy respectively; neither validates continuous GFET sensing. |
 | S59 | NIOSH official definitions of averaging periods; used to distinguish TWA and short-term limits. |
 | S58 | Performing laboratory's conversion reference. Supports biochemical units, not disease thresholds. |
 
@@ -276,7 +284,7 @@ Sources are linked next to the claims they support. Government agencies and guid
 [S43]: https://www.nice.org.uk/guidance/cg150/chapter/Recommendations "NICE CG150 — Headache assessment, updated 2025"
 [S44]: https://eyewiki.aao.org/Visual_Acuity_Testing_in_Adults "AAO EyeWiki — Visual Acuity Testing"
 [S45]: https://aao.org/eye-health/tips-prevention/facts-about-amsler-grid-daily-vision-test "AAO — Amsler Grid"
-[S46]: https://www.nasa.gov/wp-content/uploads/2025/01/d-2-requirement-compliance-matrix.pdf?emrc=67da260b51baf "NASA-STD-3001 Volume 2 Revision E — requirement compliance matrix, V2 6004"
+[S46]: https://www.nasa.gov/reference/6-0-natural-and-induced-environments-vol-2/ "NASA-STD-3001 Volume 2 Revision F — V2 6004 and V2 6020, checked 2026-11-14"
 [S47]: https://www.cdc.gov/niosh/npg/npgd0103.html "NIOSH Pocket Guide — Carbon dioxide"
 [S48]: https://www.cdc.gov/niosh/idlh/124389.html "NIOSH — Carbon dioxide IDLH rationale"
 [S49]: https://journals.plos.org/plosbiology/article?id=10.1371/journal.pbio.3001571 "Brown et al. — Day/evening/night light consensus, 2022"
@@ -291,3 +299,5 @@ Sources are linked next to the claims they support. Government agencies and guid
 [S58]: https://www.mayocliniclabs.com/order-tests/si-unit-conversion.html "Mayo — SI conversion catalog"
 
 [S59]: https://www.cdc.gov/niosh/npg/pgintrod.html "NIOSH Pocket Guide — Definitions of exposure averaging times"
+[S60]: https://www.mayocliniclabs.com/test-catalog/overview/618776 "Mayo IL6DX — Interleukin-6, Serum; performing laboratory interval"
+[S61]: https://www.nasa.gov/wp-content/uploads/2024/09/ochmo-std-100-1a-rev-a-signed.pdf "NASA OCHMO-STD-100.1A Revision A, §6.7.1 vitamin D"
